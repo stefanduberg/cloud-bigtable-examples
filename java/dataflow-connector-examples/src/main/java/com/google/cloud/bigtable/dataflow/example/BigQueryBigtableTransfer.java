@@ -31,6 +31,8 @@ import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.bigtable.beam.CloudBigtableIO;
 import com.google.cloud.bigtable.beam.CloudBigtableTableConfiguration;
 
+import com.google.gson.Gson;
+
 /**
  * <p>
  * This is an example of Bigtable with Dataflow using a Sink. The main method adds the data from
@@ -50,15 +52,19 @@ public class BigQueryBigtableTransfer {
 
     @ProcessElement
     public void processElement(DoFn<TableRow, Mutation>.ProcessContext c) throws Exception {
-
+      Gson gson = new Gson();
       TableRow row = c.element();
 
-      //Use UUID for each HBase item's row key
-      Put p = new Put(java.util.UUID.randomUUID().toString().getBytes());
+      String rowKey = row.get("newRowkey").toString();
+
+      Put p = new Put(rowKey.getBytes());
 
       for (Map.Entry<String, Object> field : row.entrySet()) {
         p.addColumn(FAMILY, field.getKey().getBytes(), ((String) field.getValue()).getBytes());
       }
+
+      p.addColumn("json".getBytes(), "data".getBytes(), gson.toJson(row, TableRow.class).getBytes());
+
       c.output(p);
 
     }
@@ -115,7 +121,7 @@ public class BigQueryBigtableTransfer {
     Pipeline p = Pipeline.create(options);
 
     p
-        .apply(BigQueryIO.read().from("ReadSourceTable").fromQuery(options.getBqQuery())
+        .apply(BigQueryIO.read().fromQuery(options.getBqQuery())
             .usingStandardSql())
         .apply(ParDo.of(MUTATION_TRANSFORM))
         .apply(CloudBigtableIO.writeToTable(config));
