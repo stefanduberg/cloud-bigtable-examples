@@ -63,8 +63,6 @@ public class BigQueryBigtableTransfer {
         p.addColumn(FAMILY, field.getKey().getBytes(), ((String) field.getValue()).getBytes());
       }
 
-      p.addColumn("json".getBytes(), "data".getBytes(), gson.toJson(row, TableRow.class).getBytes());
-
       c.output(p);
 
     }
